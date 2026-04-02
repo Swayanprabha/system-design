@@ -1,0 +1,13 @@
+Cart — only responsible for managing the item list (addProduct, getItems). It has no idea how pricing or printing works.
+
+PriceService— sole responsibility is computing the total price. It has a Cart to read items from, but that's the extent of its concern.
+
+PrintInvoiceService — sole responsibility is formatting and printing the invoice. Same pattern — it has a Cart for data access only.
+
+Product — a plain data class with fields and basic accessors.
+
+
+The "has a" relationship on PriceCalculator and InvoicePrinter
+shows they hold a reference to Cart to do their work, but they don't own it.
+Each class now has exactly one reason to change — if your invoice layout changes, only InvoicePrinter is touched;
+if pricing rules change, only PriceCalculator is touched.
