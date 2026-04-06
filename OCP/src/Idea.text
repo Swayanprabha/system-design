@@ -1,0 +1,146 @@
+Open/Closed Principle (OCP)
+
+The Open/Closed Principle is one of the SOLID design principles. It states:
+
+"Software entities should be open for extension, but closed for modification."
+
+In practice this means you should design modules so new functionality can be added (extended) without changing the existing, tested code (closed). This reduces regression risk and makes the codebase easier to evolve.
+
+Summary of this OCP example
+
+This folder contains a small arithmetic-operation example that demonstrates OCP by defining a stable abstraction (`Operation`) and several concrete implementations (`Addition`, `Substraction`, `Multiplication`, `Division`). Callers depend on the `Operation` interface and can use any implementation polymorphically.
+
+Files and responsibilities (actual files in src):
+- `Operation.java` — interface
+  - public interface Operation {
+      public String execute(String a, String b);
+    }
+  - Purpose: contract used by callers. `execute` takes two numeric values encoded as strings and returns a string result or error message.
+
+- `Addition.java` — implements `Operation`
+  - Behavior: parses inputs as int or double (using `UtilMapper.checkDataType`), computes sum and returns result as String. For double results it uses `UtilMapper.formatFloat` to round to two decimals.
+
+- `Substraction.java` — implements `Operation` (note: name uses nonstandard spelling `Substraction` in source)
+  - Behavior: subtraction; same parsing/rounding pattern as `Addition`.
+
+- `Multiplication.java` — implements `Operation`
+  - Behavior: multiplication; same parsing/rounding pattern.
+
+- `Division.java` — implements `Operation`
+  - Behavior: division; checks for division-by-zero and returns the text "Division by zero is not allowed" when detected; otherwise returns quotient as String (rounded for doubles).
+
+- `UtilMapper.java` — utility class
+  - Methods observed:
+    - `public boolean checkDataType(String a,String b)` — returns true if inputs are treated as integers (current implementation returns false if either string contains a dot '.').
+    - `public double formatFloat(double d)` — rounds to two decimal places via `Math.round(d * 100.0) / 100.0`.
+  - Note: `checkDataType` does not actually attempt parsing and will throw `NumberFormatException` later in parsing if inputs are malformed.
+
+- `Main.java` — demo runner
+  - Instantiates an `Operation` implementation directly: `Operation opeartion = new Addition();` and calls `execute` with several values, printing results.
+
+How this demonstrates OCP
+
+- The program depends on the `Operation` interface. Concrete behaviors are in separate classes that implement the interface.
+- To add new behavior (a new operation) you simply create a new class that implements `Operation` and place it in the same package/directory. No existing classes (Operation, existing operation classes, UtilMapper, or Main) need to be modified unless you want the demo runner to use the new operation. This shows "open for extension, closed for modification".
+
+UML diagram (ASCII)
+
+  +-------------------+
+  | <<interface>>     |
+  | Operation         |
+  | + execute(String, |
+  |   String): String |
+  +-------------------+
+          ^  ^  ^  ^
+          |  |  |  |
+  +-------+  |  |  +-------+
+  |          |  |          |
++--------+ +-----------+ +------------+
+|Addition| |Substraction| |Multiplication|
+|+execute| |+execute    | |+execute      |
++--------+ +-----------+ +------------+
+                 |
+                 +--------+
+                          |
+                       +---------+
+                       | Division|
+                       |+execute |
+                       +---------+
+
+UtilMapper is used by each concrete operation (dependency arrow from operations to UtilMapper). Main depends on Operation.
+
+UML diagram (PlantUML)
+
+@startuml
+interface Operation {
+  + String execute(String a, String b)
+}
+class UtilMapper {
+  + boolean checkDataType(String a, String b)
+  + double formatFloat(double d)
+}
+class Addition {
+  + String execute(String a, String b)
+}
+class Substraction {
+  + String execute(String a, String b)
+}
+class Multiplication {
+  + String execute(String a, String b)
+}
+class Division {
+  + String execute(String a, String b)
+}
+class Main {
+  + main(String[] args)
+}
+
+Operation <|.. Addition
+Operation <|.. Substraction
+Operation <|.. Multiplication
+Operation <|.. Division
+Addition ..> UtilMapper : uses
+Substraction ..> UtilMapper : uses
+Multiplication ..> UtilMapper : uses
+Division ..> UtilMapper : uses
+Main ..> Operation : depends on
+@enduml
+
+Code-level explanation: adding a new operation without modifying existing classes
+
+Goal: add a new operation (e.g., Modulo) while keeping existing classes unchanged.
+
+Steps:
+1. Create a file `Modulo.java` next to other sources.
+2. Implement the interface:
+3. Compile with the rest of the sources: `javac *.java` and run or use `Operation op = new Modulo();` in `Main` or a factory to exercise it.
+
+
+
+
+Notes and potential improvements
+
+1. Input validation: `UtilMapper.checkDataType` currently decides integer vs double by checking for a '.' character. This is brittle. Consider trying to parse as integer first (catch NumberFormatException) and fall back to double parsing, or use regex/NumberFormat for robust validation.
+
+2. Error handling: returning error messages as Strings mixes data and control flow. Better options:
+   - Throw well-defined exceptions (IllegalArgumentException) on invalid input or division-by-zero.
+   - Return a typed result like `Optional<Double>` or a custom `Result` object that separates success/error.
+
+3. Numeric precision: for precise decimal arithmetic use `BigDecimal` instead of double.
+
+4. Naming and API polish: fix `Substraction` → `Subtraction` in code to avoid confusion.
+
+5. UtilMapper statelessness: make utility methods `static` or provide a shared instance to avoid repeatedly constructing `UtilMapper` in every operation.
+
+6. Registration/factory: introduce an `OperationFactory` or registry mapping names/enums to Operation instances. New operations can register themselves via static initializers or configuration files, so callers (Main) don't need editing.
+
+7. Internationalization: parsing assumes '.' as decimal separator. Consider locale-aware parsing for production code.
+
+Edge cases to test
+
+- Non-numeric inputs (e.g., "abc") → currently throws NumberFormatException during parse.
+- Very large integers (overflow) → integers can overflow; consider using `long`/`BigInteger` where appropriate.
+- Division/modulo by zero → `Division` and `Modulo` should guard and return/throw.
+- Mixed formats (scientific notation, comma decimals) → current `checkDataType` will misclassify or raise parse errors.
+
+
